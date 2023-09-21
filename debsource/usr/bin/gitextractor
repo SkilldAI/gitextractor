@@ -1,0 +1,385 @@
+#!/usr/bin/env bash
+
+
+# # # load configuration
+source "/etc/gitextractor/config.sh"
+
+if ! [ -x "$(command -v git)" ]; then
+
+echo 'Error: git is not installed.' >&2
+
+exit 1
+
+fi
+
+get_repos() {
+
+local base_dir=/opt/gitextractor
+
+cd $base_dir
+
+local repos_dir="$base_dir/repos"
+
+mkdir -p $repos_dir
+
+repo_urls=()
+
+for i in {1..5}
+
+do
+
+echo "Enter a git repository URL:"
+
+read repo_url
+
+repo_urls+=("$repo_url")
+
+if (( i < 5 )); then
+
+echo "Do you want to add another repository? [y/N]"
+
+read add_another
+
+if [[ "$add_another" != "Y" && "$add_another" != "y" ]]; then
+
+break
+
+fi
+
+fi
+
+done
+
+for repo_url in "${repo_urls[@]}"
+
+do
+
+project_name=$(basename -s .git "$repo_url")
+
+if [ -d "$repos_dir/$project_name" ]; then
+
+echo "Repo $project_name is already checked out, skipping..."
+
+continue
+
+else
+
+if git clone "$repo_url" "$repos_dir/$project_name"; then
+
+echo "Successfully cloned $repo_url"
+
+else
+
+echo "Failed to clone $repo_url"
+
+fi
+
+fi
+
+done
+
+}
+
+get_branches() {
+
+echo "Debug: Entering get_branches"
+
+local base_dir=$(realpath $(dirname "$0"))
+
+if [ ! -f "$base_dir/extractor.sh" ]; then
+
+echo "Error2: extractor.sh does not exist in the base directory. pwd:"
+
+pwd
+
+exit 1
+
+fi
+
+local repos_dir="$base_dir/repos"
+
+for repo_dir in "$repos_dir"/*; do
+
+if [ -d "$repo_dir" ] && [ ! -f "$repo_dir/.branches_checked" ]; then
+
+cd "$repo_dir"
+
+echo "Checking out branches in $(basename "$repo_dir")..."
+
+git fetch --all
+
+for branch in $(git branch -r | grep -v '\->' | sed 's/origin\///g'); do
+
+echo "Debug: Checking out branch $branch"
+
+git checkout "$branch" &>/dev/null
+
+done
+
+touch "$repo_dir/.branches_checked"
+
+fi
+
+done
+
+cd $base_dir
+
+}
+
+get_author_commits() {
+
+echo "Debug: Entering get_author_commits"
+
+local base_dir=$(realpath $(dirname "$0"))
+
+local repos_dir="$base_dir/repos"
+
+declare -A authors
+
+for repo_dir in "$repos_dir"/*; do
+
+if [ -d "$repo_dir" ]; then
+
+cd "$repo_dir"
+
+while IFS= read -r line; do
+
+authors["$line"]=""
+
+done < <(git log --all --pretty=format:'%aN' | sort | uniq)
+
+fi
+
+done
+
+cd $base_dir
+
+local index=1
+
+declare -A author_lookup
+
+for author in "${!authors[@]}"; do
+
+author_lookup[$index]="$author"
+
+echo "$index) $author"
+
+((index++))
+
+done
+
+while true; do
+
+echo "#? "
+
+read selection
+
+selected_author="${author_lookup[$selection]}"
+
+if [ -z "$selected_author" ]; then
+
+echo "Invalid selection"
+
+continue
+
+else
+
+echo "You selected: $selected_author"
+
+process_author_commits "$selected_author"
+
+echo "Do you want to select another author? [y/N]"
+
+read cont
+
+if [[ "$cont" != "Y" && "$cont" != "y" ]]; then
+
+break
+
+fi
+
+fi
+
+done
+
+}
+
+process_author_commits() {
+
+local author="$1"
+
+local chunk_total_count=0
+
+local base_dir=$(realpath $(dirname "$0"))
+
+local repos_dir="$base_dir/repos"
+
+local sanitized_author=$(echo "$author" | tr -dc '[:alnum:]\n\r' | tr '[:upper:]' '[:lower:]')
+
+local author_dir="$base_dir/$sanitized_author"
+
+local commits_dir="$author_dir/commits"
+
+rm -rf $author_dir
+
+mkdir -p $commits_dir
+
+local info_file="$commits_dir/info.txt"
+
+local info_written=false
+
+for repo_dir in "$repos_dir"/*; do
+
+if [ -d "$repo_dir" ]; then
+
+cd "$repo_dir"
+
+if [ "$info_written" = false ]; then
+
+author_email=$(git log --all --author="$author" --pretty=format:'%ae' | head -n 1)
+
+echo "$author_email" > $info_file
+
+echo "$author" >> $info_file
+
+info_written=true
+
+fi
+
+commits_hash=($(git log --all --author="$author" --pretty=format:'%H'))
+
+for hash in "${commits_hash[@]}"; do
+
+echo $chunk_total_count
+
+if [ $chunk_total_count -ge 100 ]; then
+
+break 2 # Exit both the current loop and the outer loop
+
+fi
+
+commit_message=$(git log -1 --pretty=format:'%B' $hash)
+
+commit_message_size=${#commit_message}
+
+modified_files=$(git diff-tree --no-commit-id --name-only -r $hash)
+
+commit_type="code" # default
+
+if git show --summary $hash | grep -q "Merge:"; then
+
+commit_type="merge"
+
+fi
+
+commit_date=$(git show -s --format=%cd $hash)
+
+chunk_content=""
+
+chunk_size=0
+
+chunk_count=1
+
+for file in $modified_files; do
+
+if [ $chunk_total_count -ge 100 ]; then
+
+break 3
+
+fi
+
+if [[ $file =~ \.(png|jpg|jpeg|gif|bmp|svg|tif|tiff|webp|psd|ai|eps|mp3|wav|ogg)$ ]]; then
+
+continue
+
+fi
+
+if [[ $file =~ \.(wma|aiff|mp4|mkv|flv|avi|mov|wmv|m4v|mpg|mpeg|3gp|pdf|doc|docx|xls|xlsx|ppt)$ ]]; then
+
+continue
+
+fi
+
+if [[ $file =~ \.(pptx|odt|ods|zip|rar|tar|gz|7z|bz2|lzma|db|sql|mdb|accdb|dbf|log|bin)$ ]]; then
+
+continue
+
+fi
+
+if [[ $file =~ \.(m4a|flac|aac|dat|iso|img|dmg|bak)$ ]]; then
+
+continue
+
+fi
+
+file_diff=$(git diff --no-color --text $hash~1 $hash -- "$file" | tr -d '\0')
+
+file_size=${#file_diff}
+
+if [ $file_size -gt $(echo "20000-$commit_message_size" | bc) ]; then
+
+continue
+
+fi
+
+if [ $(($chunk_size + $file_size + $commit_message_size)) -gt 20000 ]; then
+
+echo -e "$commit_message\n$chunk_content" > "$commits_dir/${hash}_${chunk_count}.txt"
+
+sed -i 's/'$(echo -e '\033')'/\\E/g' "$commits_dir/${hash}_${chunk_count}.txt"
+
+echo "${hash}_${chunk_count}=${commit_type}&date=${commit_date}" >> "$commits_dir/info.txt"
+
+chunk_content=""
+
+chunk_size=0
+
+chunk_count=$(($chunk_count + 1))
+
+chunk_total_count=$(($chunk_total_count + 1))
+
+fi
+
+chunk_content="$chunk_content\n$file_diff"
+
+chunk_size=$(($chunk_size + $file_size))
+
+done
+
+if [[ -n "$chunk_content" ]]; then
+
+echo -e "$commit_message\n$chunk_content" > "$commits_dir/${hash}_${chunk_count}.txt"
+
+sed -i 's/'$(echo -e '\033')'/\\E/g' "$commits_dir/${hash}_${chunk_count}.txt"
+
+echo "${hash}_${chunk_count}=${commit_type}&date=${commit_date}" >> "$commits_dir/info.txt"
+
+fi
+
+chunk_total_count=$(($chunk_total_count + 1))
+
+done
+
+fi
+
+cd $base_dir
+
+done
+
+sed -i '/^$/d' "$commits_dir/info.txt"
+
+cd $author_dir
+
+zip -r "../$sanitized_author.zip" "commits"
+
+cd ../
+
+}
+
+get_repos
+
+get_branches
+
+get_author_commits
+
+echo "Debug: Script finished"

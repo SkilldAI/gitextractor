@@ -1,0 +1,6 @@
+2d3697cbd6f52ba34d63c87ef762c61c  etc/gitextractor/config.sh
+97f090c621701482b63c69c869899d13  usr/bin/gitextractor
+e18d5f3ae2a87875fe7d536f8e457ab9  usr/share/man/man8/gitextractor.8.gz
+fe35d019c733a0783ce121da2058162f  usr/share/gitextractor/lib/framework/message.sh
+95e3c14fba472717b32505cbf9af0983  usr/share/doc/gitextractor/changelog.gz
+56cb4265b8ef3874b889a35b4eb1b6a8  usr/share/doc/gitextractor/copyright

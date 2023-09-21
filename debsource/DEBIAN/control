@@ -1,0 +1,12 @@
+Package: gitextractor
+Version: 1.1
+Architecture: all
+Installed-Size: 39301
+Maintainer: Jochen Schultz <jschultz@php.net>
+Provides: gitextractor
+Depends: debconf (>= 0.2.26), git, zip
+Section: devel
+Priority: extra
+Homepage: https://skilld.ai
+Description: Script will help you to extract commits
+ of specific developer and zip them into archive.

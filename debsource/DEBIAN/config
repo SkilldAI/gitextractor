@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# exit on error
+set -e
+
