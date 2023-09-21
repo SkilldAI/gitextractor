@@ -11,16 +11,24 @@ gitextractor
 # installation
 
 ```
-$ git clone
+$ git clone git@github.com:SkilldAI/gitextractor.git
 $ cd gitextractor
 $ dpkg -i gitextractor.deb
 ```
 
 ---
 
-### or build it by yourself / (expert mode)
+# or build it by yourself / (expert mode)
 
 First checkout the source
+
+```
+$ git clone git@github.com:SkilldAI/gitextractor.git
+$ cd gitextractor
+```
+
+and then, well like I said - expert mode *g*
+
 
 ## package structure 
 

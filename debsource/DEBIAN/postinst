@@ -3,3 +3,7 @@
 # exit on error
 set -e
 
+mkdir -p /opt/gitextractor
+
+# chown it to sudo user
+chown -R ${SUDO_USER}:${SUDO_USER} /opt/gitextractor
