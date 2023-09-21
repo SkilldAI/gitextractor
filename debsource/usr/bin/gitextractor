@@ -84,17 +84,7 @@ get_branches() {
 
 echo "Debug: Entering get_branches"
 
-local base_dir=$(realpath $(dirname "$0"))
-
-if [ ! -f "$base_dir/extractor.sh" ]; then
-
-echo "Error2: extractor.sh does not exist in the base directory. pwd:"
-
-pwd
-
-exit 1
-
-fi
+local base_dir=/opt/gitextractor
 
 local repos_dir="$base_dir/repos"
 
@@ -130,7 +120,7 @@ get_author_commits() {
 
 echo "Debug: Entering get_author_commits"
 
-local base_dir=$(realpath $(dirname "$0"))
+local base_dir=/opt/gitextractor
 
 local repos_dir="$base_dir/repos"
 
@@ -210,7 +200,7 @@ local author="$1"
 
 local chunk_total_count=0
 
-local base_dir=$(realpath $(dirname "$0"))
+local base_dir=/opt/gitextractor
 
 local repos_dir="$base_dir/repos"
 
